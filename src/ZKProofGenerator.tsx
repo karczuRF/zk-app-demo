@@ -15,6 +15,7 @@ const ZKProofGenerator: React.FC = () => {
 
   const wasmFileRef = useRef<HTMLInputElement>(null);
   const zkeyFileRef = useRef<HTMLInputElement>(null);
+  const verKeyFileRef = useRef<HTMLInputElement>(null);
 
   const generateProof = async () => {
     try {
@@ -64,14 +65,32 @@ const ZKProofGenerator: React.FC = () => {
     if (!proofResult) return;
 
     try {
-      // For verification, you would need the verification key (vkey.json)
-      // This is a placeholder - you'll need to implement verification based on your circuit
-      console.log("Verification would happen here with vkey.json");
-      alert(
-        "Verification functionality requires vkey.json file. Check console for proof data."
+      const vkeyFile = verKeyFileRef.current?.files?.[0];
+      console.log("Verification key vkey.json", vkeyFile);
+      if (!vkeyFile) {
+        alert("Please select a verification key file");
+        return;
+      }
+
+      // Read the verification key as text and parse as JSON
+      const vkeyText = await vkeyFile.text();
+      const vkey = JSON.parse(vkeyText);
+
+      const res = await snarkjs.groth16.verify(
+        vkey,
+        proofResult.publicSignals,
+        proofResult.proof
       );
+
+      console.log("Verification result:", res);
+      alert(res ? "Proof is valid!" : "Proof is invalid!");
     } catch (err) {
       console.error("Verification error:", err);
+      alert(
+        `Verification failed: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
     }
   };
 
@@ -99,6 +118,17 @@ const ZKProofGenerator: React.FC = () => {
               type="file"
               ref={zkeyFileRef}
               accept=".zkey"
+              style={{ marginLeft: "10px" }}
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: "10px" }}>
+          <label>
+            Verification key (.json):
+            <input
+              type="file"
+              ref={verKeyFileRef}
+              accept=".json"
               style={{ marginLeft: "10px" }}
             />
           </label>
