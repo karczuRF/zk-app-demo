@@ -1,0 +1,6 @@
+{
+  "user_data": "text",
+  "chacha20_key": "0123456789abcdef0123456789abcdef",
+  "chacha20_nonce": "000000000001",
+  "chacha20_counter": "1"
+}

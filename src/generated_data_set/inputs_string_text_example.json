@@ -1,0 +1,6 @@
+{
+  "user_data": "This is a longer message that will be encrypted using ChaCha20 in the zero-knowledge proof circuit.",
+  "chacha20_key": "1a2b3c4d5e6f7890abcdef1234567890",
+  "chacha20_nonce": "987654321abc",
+  "chacha20_counter": "10"
+}

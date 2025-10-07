@@ -1,0 +1,6 @@
+{
+  "user_data": "{\"message\":\"Hello ZK World!\",\"amounts\":[10,20,30]}",
+  "chacha20_key": "fedcba9876543210fedcba9876543210",
+  "chacha20_nonce": "abcdef123456",
+  "chacha20_counter": "5"
+}
