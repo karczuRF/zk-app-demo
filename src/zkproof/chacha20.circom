@@ -4,13 +4,13 @@ include "../../node_modules/zk-symmetric-crypto/chacha20/chacha20-bits.circom";
 
 
 /**
- * ChaCha20 circuit for decrypting large JSON data (50KB)
+ * ChaCha20 circuit for decrypting JSON data (up to 10KB)
  * 
  * This is a scalable version that processes multiple 64-byte blocks.
- * For 50KB data, we process it in manageable chunks to avoid circuit size explosion.
+ * For 10KB data, we process it in manageable chunks to keep circuit size reasonable.
  * 
- * Approach: Process 50KB as 800 blocks of 64 bytes each (51,200 bytes total)
- * This gives us some padding for the actual 50KB of data.
+ * Approach: Process 10KB as 160 blocks of 64 bytes each (10,240 bytes total)
+ * This gives us some padding for the actual 10KB of data and is much more efficient.
  */
 
 /**
@@ -44,11 +44,11 @@ template ChaCha20DecryptLarge(numBlocks) {
 }
 
 /**
- * Specific instantiation for 50KB JSON processing
- * 50KB ≈ 781.25 blocks of 64 bytes, so we use 800 blocks for safety
+ * Specific instantiation for 10KB JSON processing
+ * 10KB ≈ 156.25 blocks of 64 bytes, so we use 160 blocks for safety
  */
-template ChaCha20Decrypt50KB() {
-    var NUM_BLOCKS = 800;  // 800 × 64 = 51,200 bytes (covers 50KB + padding)
+template ChaCha20Decrypt10KB() {
+    var NUM_BLOCKS = 160;  // 160 × 64 = 10,240 bytes (covers 10KB + padding)
     
     // Define the interface first
     signal input key[8][32];
@@ -113,11 +113,11 @@ template ChaCha20DecryptDemo() {
     plaintext <== chacha20.out;
 }
 
-// Main component instantiation for 50KB JSON processing
+// Main component instantiation for 10KB JSON processing
 // 
-// For production use: ChaCha20Decrypt50KB() - handles ~50KB of data
-// For testing: ChaCha20Decrypt1KB() - handles ~1KB of data  
-// For basic demo: ChaCha20DecryptDemo() - handles 64 bytes
+// For production use: ChaCha20Decrypt10KB() - handles ~10KB of data (160 blocks)
+// For testing: ChaCha20Decrypt1KB() - handles ~1KB of data (16 blocks)
+// For basic demo: ChaCha20DecryptDemo() - handles 64 bytes (1 block)
 //
 // Input structure:
 // - key: private input (chacha20_key from JSON - 32 bytes)
@@ -126,5 +126,10 @@ template ChaCha20DecryptDemo() {
 // - ciphertext: public input (user_data from JSON converted to blocks)
 // - plaintext: public output (decrypted data blocks)
 
-// Use the 50KB version for handling large JSON data (key is private by default)
-component main{public [nonce, counter, ciphertext]} = ChaCha20Decrypt50KB();
+// Choose the appropriate size based on your needs:
+// - ChaCha20Decrypt10KB() for up to 10KB data (160 blocks) - large but manageable
+// - ChaCha20Decrypt1KB() for up to 1KB data (16 blocks) - more practical for most cases
+// - ChaCha20DecryptDemo() for 64 bytes (1 block) - for testing and small data
+
+// Use the 1KB version for practical JSON processing (key is private by default)
+component main{public [nonce, counter, ciphertext]} = ChaCha20Decrypt1KB();

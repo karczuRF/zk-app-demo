@@ -3,6 +3,26 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
+// Circuit size options:
+// - 1KB: 16 blocks × 64 bytes = 1,024 bytes (practical for most JSON)
+// - 10KB: 160 blocks × 64 bytes = 10,240 bytes (for larger data)
+
+const CIRCUIT_SIZE = process.env.CIRCUIT_SIZE || "1KB"; // Default to 1KB for practicality
+let NUM_BLOCKS, MAX_SIZE;
+
+if (CIRCUIT_SIZE === "10KB") {
+  NUM_BLOCKS = 160; // 10KB circuit
+  MAX_SIZE = 10240;
+} else if (CIRCUIT_SIZE === "64B") {
+  NUM_BLOCKS = 1; // Demo circuit (64 bytes)
+  MAX_SIZE = 64;
+} else {
+  NUM_BLOCKS = 16; // 1KB circuit (default)
+  MAX_SIZE = 1024;
+}
+
+const BLOCK_SIZE = 64; // bytes per block
+
 const __dirname = path.dirname(__filename);
 
 /**
@@ -134,21 +154,37 @@ function generateChaCha20CircuitInputs(inputData) {
   const counterBits = intToBits32(counter);
   console.log(`✅ Counter converted: ${counter} -> 32 bits`);
 
-  // 4. Ciphertext: Use first 64 bytes of user_data as "ciphertext" (for demo)
-  // In practice, this would be actual encrypted data
-  const ciphertextBytes = new Array(64).fill(0);
-  for (let i = 0; i < Math.min(userData.length, 64); i++) {
-    ciphertextBytes[i] = userData[i];
+  // 4. Ciphertext: Process data in 64-byte blocks (size determined by CIRCUIT_SIZE)
+  const BLOCK_SIZE = 64; // bytes per block
+  // Use global configuration set at module level
+
+  // Prepare the data (pad or truncate to exactly 10KB)
+  const processedData = new Array(MAX_SIZE).fill(0);
+  for (let i = 0; i < Math.min(userData.length, MAX_SIZE); i++) {
+    processedData[i] = userData[i];
   }
-  const ciphertextBits = convertBytesToCircuitInput(ciphertextBytes, 16);
-  console.log(`✅ Ciphertext converted: 64 bytes -> 16 words of 32 bits each`);
+
+  // Convert to blocks of 64 bytes each
+  const ciphertextBlocks = [];
+  for (let blockIdx = 0; blockIdx < NUM_BLOCKS; blockIdx++) {
+    const blockStart = blockIdx * BLOCK_SIZE;
+    const blockBytes = processedData.slice(blockStart, blockStart + BLOCK_SIZE);
+
+    // Convert this block to 16 words × 32 bits
+    const blockBits = convertBytesToCircuitInput(blockBytes, 16);
+    ciphertextBlocks.push(blockBits);
+  }
+
+  console.log(
+    `✅ Ciphertext converted: ${userData.length} bytes -> ${NUM_BLOCKS} blocks (${MAX_SIZE} bytes total, ${CIRCUIT_SIZE} circuit)`
+  );
 
   // Create the circuit input structure
   const circuitInputs = {
     key: keyBits,
     nonce: nonceBits,
     counter: counterBits,
-    ciphertext: ciphertextBits,
+    ciphertext: ciphertextBlocks,
   };
 
   console.log("\n=== Circuit Input Summary ===");
@@ -164,9 +200,11 @@ function generateChaCha20CircuitInputs(inputData) {
   );
   console.log(`Counter: 32 bits`);
   console.log(
-    `Ciphertext: ${circuitInputs.ciphertext.length} words x 32 bits = ${
-      circuitInputs.ciphertext.length * 32
-    } total bits`
+    `Ciphertext: ${
+      circuitInputs.ciphertext.length
+    } blocks x 16 words x 32 bits = ${
+      circuitInputs.ciphertext.length * 16 * 32
+    } total bits (${circuitInputs.ciphertext.length * 64} bytes)`
   );
 
   return circuitInputs;
@@ -184,6 +222,7 @@ function processAllInputFiles() {
     "chacha_input_generated.json",
     "chacha_input_json_example.json",
     "chacha_input_text_example.json",
+    "inputs_string_1kb_transaction.json",
   ];
 
   const results = {};
