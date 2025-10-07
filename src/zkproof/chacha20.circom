@@ -127,9 +127,9 @@ template ChaCha20DecryptDemo() {
 // - plaintext: public output (decrypted data blocks)
 
 // Choose the appropriate size based on your needs:
-// - ChaCha20Decrypt10KB() for up to 10KB data (160 blocks) - large but manageable
+// - ChaCha20Decrypt10KB() for up to 10KB data (160 blocks) - for large datasets
 // - ChaCha20Decrypt1KB() for up to 1KB data (16 blocks) - more practical for most cases
 // - ChaCha20DecryptDemo() for 64 bytes (1 block) - for testing and small data
 
-// Use the 1KB version for practical JSON processing (key is private by default)
-component main{public [nonce, counter, ciphertext]} = ChaCha20Decrypt1KB();
+// Use the 10KB version for handling large records datasets (key is private by default)
+component main{public [nonce, counter, ciphertext]} = ChaCha20Decrypt10KB();

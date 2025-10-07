@@ -223,6 +223,10 @@ function processAllInputFiles() {
     "chacha_input_json_example.json",
     "chacha_input_text_example.json",
     "inputs_string_1kb_transaction.json",
+    "inputs_10kb_records_variant1.json",
+    "inputs_10kb_records_variant2.json",
+    "inputs_10kb_records_variant3.json",
+    "inputs_10kb_records_compact.json",
   ];
 
   const results = {};
