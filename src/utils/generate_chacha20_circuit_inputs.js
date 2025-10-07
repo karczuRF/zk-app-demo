@@ -3,18 +3,23 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
-// Circuit size options:
+// Circuit size configuration - determines number of blocks to process
+// - 64B: 1 block × 64 bytes = 64 bytes (demo/test)
 // - 1KB: 16 blocks × 64 bytes = 1,024 bytes (practical for most JSON)
 // - 10KB: 160 blocks × 64 bytes = 10,240 bytes (for larger data)
+// - 20KB: 320 blocks × 64 bytes = 20,480 bytes (for very large data)
 
 const CIRCUIT_SIZE = process.env.CIRCUIT_SIZE || "1KB"; // Default to 1KB for practicality
-let NUM_BLOCKS, MAX_SIZE;
-
-if (CIRCUIT_SIZE === "10KB") {
+let NUM_BLOCKS;
+let MAX_SIZE;
+if (CIRCUIT_SIZE === "20KB") {
+  NUM_BLOCKS = 320; // 20KB circuit
+  MAX_SIZE = 20480;
+} else if (CIRCUIT_SIZE === "10KB") {
   NUM_BLOCKS = 160; // 10KB circuit
   MAX_SIZE = 10240;
 } else if (CIRCUIT_SIZE === "64B") {
-  NUM_BLOCKS = 1; // Demo circuit (64 bytes)
+  NUM_BLOCKS = 1; // 64B circuit (demo)
   MAX_SIZE = 64;
 } else {
   NUM_BLOCKS = 16; // 1KB circuit (default)
@@ -227,6 +232,7 @@ function processAllInputFiles() {
     "inputs_10kb_records_variant2.json",
     "inputs_10kb_records_variant3.json",
     "inputs_10kb_records_compact.json",
+    "inputs_20kb_records_test.json",
   ];
 
   const results = {};

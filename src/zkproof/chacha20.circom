@@ -44,6 +44,31 @@ template ChaCha20DecryptLarge(numBlocks) {
 }
 
 /**
+ * Specific instantiation for 20KB JSON processing
+ * 20KB ≈ 312.5 blocks of 64 bytes, so we use 320 blocks for safety
+ */
+template ChaCha20Decrypt20KB() {
+    var NUM_BLOCKS = 320;  // 320 × 64 = 20,480 bytes (covers 20KB + padding)
+    
+    // Define the interface first
+    signal input key[8][32];
+    signal input nonce[3][32];
+    signal input counter[32];
+    signal input ciphertext[NUM_BLOCKS][16][32];
+    signal output plaintext[NUM_BLOCKS][16][32];
+    
+    // Use the generic large data template
+    component processor = ChaCha20DecryptLarge(NUM_BLOCKS);
+    
+    // Pass through all signals
+    processor.key <== key;
+    processor.nonce <== nonce;
+    processor.counter <== counter;
+    processor.ciphertext <== ciphertext;
+    plaintext <== processor.plaintext;
+}
+
+/**
  * Specific instantiation for 10KB JSON processing
  * 10KB ≈ 156.25 blocks of 64 bytes, so we use 160 blocks for safety
  */
@@ -127,9 +152,10 @@ template ChaCha20DecryptDemo() {
 // - plaintext: public output (decrypted data blocks)
 
 // Choose the appropriate size based on your needs:
+// - ChaCha20Decrypt20KB() for up to 20KB data (320 blocks) - for very large datasets
 // - ChaCha20Decrypt10KB() for up to 10KB data (160 blocks) - for large datasets
 // - ChaCha20Decrypt1KB() for up to 1KB data (16 blocks) - more practical for most cases
 // - ChaCha20DecryptDemo() for 64 bytes (1 block) - for testing and small data
 
-// Use the 10KB version for handling large records datasets (key is private by default)
+// Use the 10KB version for comparison (key is private by default)
 component main{public [nonce, counter, ciphertext]} = ChaCha20Decrypt10KB();
