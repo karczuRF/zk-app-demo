@@ -1,6 +1,6 @@
-const circomlib = require("circomlibjs");
+import * as circomlib from "circomlibjs";
 
-async function eddsaPoseidonExample() {
+export async function eddsaPoseidonExample() {
   console.log("=== EdDSA Poseidon Signature Example ===\n");
 
   // 1. Initialize libraries
@@ -82,8 +82,6 @@ async function eddsaPoseidonExample() {
 }
 
 // Run the example
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   eddsaPoseidonExample().catch(console.error);
 }
-
-module.exports = { eddsaPoseidonExample };

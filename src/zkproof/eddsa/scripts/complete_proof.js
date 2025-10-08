@@ -1,7 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-const { execSync } = require("child_process");
-// const { eddsaPoseidonExample } = require("./eddsa_example"); // import if needed
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+// import { eddsaPoseidonExample } from "./eddsa_example.js"; // import if needed
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Complete EdDSA Proof Generation with Working Test Data
@@ -19,18 +23,12 @@ async function generateWorkingProof() {
     fs.mkdirSync(buildDir, { recursive: true });
   }
 
-  // Step 1: Use test inputs that we know work with disabled verification
-  console.log("1. Using working test inputs (disabled verification)...");
-  const workingInputs = {
-    enabled: "1", // Disable verification to avoid signature validation issues
-    Ax: "0",
-    Ay: "1",
-    M: "0",
-    R8x: "0",
-    R8y: "1",
-    S: "0",
-  };
-  //   const workingInputs = await eddsaPoseidonExample(); //TODO uncomment to generate new inputs
+  // Step 1: Generate working EdDSA inputs
+  console.log("1. Generating working EdDSA signature inputs...");
+
+  // Import and use the EdDSA example generator
+  const { eddsaPoseidonExample } = await import("./eddsa_example.js");
+  const workingInputs = await eddsaPoseidonExample();
   // Test inputs from our working test case
 
   // some test inputs
@@ -53,19 +51,38 @@ async function generateWorkingProof() {
     const inputPath = path.join(buildDir, "input.json");
     fs.writeFileSync(inputPath, JSON.stringify(workingInputs, null, 2));
 
-    // Test witness generation first
-    const { wasm } = require("circom_tester");
-    const circuitPath = path.join(__dirname, "EdDSAExample.circom");
-    const circuit = await wasm(circuitPath);
-    const witness = await circuit.calculateWitness(workingInputs, true);
+    // Use pre-compiled circuit
+    const wasmPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "build",
+      "eddsa",
+      "EdDSAVerifier_js",
+      "EdDSAVerifier.wasm"
+    );
 
-    console.log("✓ Witness generated successfully");
-    console.log("   Witness length:", witness.length);
-    console.log("   Output (valid):", witness[1]?.toString());
+    if (fs.existsSync(wasmPath)) {
+      const snarkjs = await import("snarkjs");
+      const witnessPath = path.join(buildDir, "witness.wtns");
+      await snarkjs.wtns.calculate(workingInputs, wasmPath, witnessPath);
+      console.log("✓ Witness generated using pre-compiled circuit");
+      console.log("✓ Witness file saved to:", witnessPath);
+    } else {
+      console.log("⚠️ Pre-compiled circuit not found. Compile first with:");
+      console.log(
+        "   circom src/zkproof/eddsa/EdDSAVerifier.circom --r1cs --wasm --sym -l node_modules -o build/eddsa/"
+      );
+      throw new Error("Pre-compiled circuit required");
+    }
+
+    console.log("✓ Witness generation completed successfully");
 
     // Step 3: Download powers of tau if needed
     console.log("\n3. Setting up powers of tau...");
-    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_13.ptau");
+    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_12.ptau");
 
     if (!fs.existsSync(ptauPath)) {
       console.log("   Downloading powers of tau (this may take a while)...");
@@ -97,28 +114,23 @@ async function generateWorkingProof() {
       console.log("✓ Powers of tau already exists");
     }
 
-    // Step 4: Generate witness file for snarkjs
-    console.log("\n4. Generating witness file for snarkjs...");
-    const witnessPath = path.join(buildDir, "witness.wtns");
-    const wasmPath = path.join(buildDir, "EdDSAExample.wasm");
+    // Step 4: Generate witness file for snarkjs (already done above)
+    console.log("\n4. Witness file already generated...");
 
-    if (fs.existsSync(wasmPath)) {
-      const snarkjs = require("snarkjs");
-      await snarkjs.wtns.calculate(workingInputs, wasmPath, witnessPath);
-      console.log("✓ Witness file generated");
-    } else {
-      console.log("⚠️ WASM file not found, using alternative method");
-      // Create a simple witness file from our data
-      const witnessData = witness.map((x) => x.toString());
-      fs.writeFileSync(
-        path.join(buildDir, "witness_data.json"),
-        JSON.stringify(witnessData, null, 2)
-      );
-    }
+    // Witness already generated above
 
     // Step 5: Setup proving key
     console.log("\n5. Generating proving key...");
-    const r1csPath = path.join(buildDir, "EdDSAExample.r1cs");
+    const r1csPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "build",
+      "eddsa",
+      "EdDSAVerifier.r1cs"
+    );
     const zkeyPath = path.join(buildDir, "circuit.zkey");
 
     if (
@@ -230,8 +242,8 @@ async function generateWorkingProof() {
     console.log("✅ Files generated in build/ directory:");
 
     const files = [
-      "EdDSAExample.r1cs",
-      "EdDSAExample.wasm",
+      "EdDSAVerifier.r1cs",
+      "EdDSAVerifier.wasm",
       "input.json",
       "witness.wtns",
       "circuit.zkey",
@@ -271,7 +283,7 @@ async function generateWorkingProof() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   generateWorkingProof()
     .then((result) => {
       if (result.success) {
@@ -283,4 +295,4 @@ if (require.main === module) {
     .catch(console.error);
 }
 
-module.exports = { generateWorkingProof };
+export { generateWorkingProof };
