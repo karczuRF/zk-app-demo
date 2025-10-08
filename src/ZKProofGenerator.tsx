@@ -11,11 +11,14 @@ const ZKProofGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [proofResult, setProofResult] = useState<ProofResult | null>(null);
   const [error, setError] = useState<string>("");
-  const [input, setInput] = useState('{"a": "1", "b": "2"}');
+  const [input, setInput] = useState(
+    '{"enabled": "0","Ax": "0","Ay": "1","M": "0","R8x": "0","R8y": "1","S": "0"}'
+  );
 
   const wasmFileRef = useRef<HTMLInputElement>(null);
   const zkeyFileRef = useRef<HTMLInputElement>(null);
   const verKeyFileRef = useRef<HTMLInputElement>(null);
+  const inputFileRef = useRef<HTMLInputElement>(null);
 
   const generateProof = async () => {
     try {
@@ -34,8 +37,17 @@ const ZKProofGenerator: React.FC = () => {
       // Parse the input
       let proofInput;
       try {
-        proofInput = JSON.parse(input);
-      } catch (e) {
+        const inputFile = inputFileRef.current?.files?.[0];
+        console.log("Verification key vkey.json", inputFile);
+        if (!inputFile) {
+          alert("Please select a verification key file");
+          return;
+        }
+
+        // Read the verification key as text and parse as JSON
+        const inputText = await inputFile.text();
+        proofInput = JSON.parse(inputText);
+      } catch {
         throw new Error("Invalid JSON input");
       }
 
@@ -133,17 +145,17 @@ const ZKProofGenerator: React.FC = () => {
             />
           </label>
         </div>
-      </div>
-
-      <div style={{ marginBottom: "20px" }}>
-        <h3>Proof Input (JSON)</h3>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder='{"a": "1", "b": "2"}'
-          rows={4}
-          style={{ width: "100%", fontFamily: "monospace" }}
-        />
+        <div style={{ marginBottom: "10px" }}>
+          <label>
+            Proof input (.json):
+            <input
+              type="file"
+              ref={inputFileRef}
+              accept=".json"
+              style={{ marginLeft: "10px" }}
+            />
+          </label>
+        </div>
       </div>
 
       <div style={{ marginBottom: "20px" }}>
