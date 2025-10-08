@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import * as snarkjs from "snarkjs";
 
@@ -38,7 +37,15 @@ async function generateAndVerifyProof() {
     // Step 1: Use pre-compiled circuit (already exists)
     console.log("\n2. Using pre-compiled circuit...");
     const circuitPath = path.join(__dirname, "..", "EdDSAVerifier.circom");
-    const outputDir = path.join(__dirname, "build");
+    const outputDir = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "build",
+      "eddsa_generate"
+    );
     const preCompiledDir = path.join(
       __dirname,
       "..",
@@ -93,50 +100,74 @@ async function generateAndVerifyProof() {
       ptauPath = path.join(outputDir, "powersOfTau28_hez_final_12.ptau");
     }
 
-    // Check if the file is valid (not empty)
-    if (fs.existsSync(ptauPath) && fs.statSync(ptauPath).size < 1000000) {
-      console.log("   Powers of tau file is too small/corrupted, removing...");
-      fs.unlinkSync(ptauPath);
-      ptauPath = null;
+    // Check if the file is valid (not empty) or copy from existing
+    if (!fs.existsSync(ptauPath) || fs.statSync(ptauPath).size < 1000000) {
+      // Try to copy from scripts build directory
+      const sourcePathScripts = path.join(
+        __dirname,
+        "build",
+        "powersOfTau28_hez_final_13.ptau"
+      );
+      const sourcePathScripts12 = path.join(
+        __dirname,
+        "build",
+        "powersOfTau28_hez_final_12.ptau"
+      );
+
+      if (
+        fs.existsSync(sourcePathScripts) &&
+        fs.statSync(sourcePathScripts).size > 1000000
+      ) {
+        console.log(
+          "   Copying valid powers of tau file from scripts build..."
+        );
+        fs.copyFileSync(sourcePathScripts, ptauPath);
+        console.log("✓ Powers of tau copied successfully");
+      } else if (
+        fs.existsSync(sourcePathScripts12) &&
+        fs.statSync(sourcePathScripts12).size > 1000000
+      ) {
+        console.log(
+          "   Copying valid powers of tau file from scripts build..."
+        );
+        fs.copyFileSync(sourcePathScripts12, ptauPath);
+        console.log("✓ Powers of tau copied successfully");
+      } else {
+        console.log(
+          "   No valid powers of tau file found, generating locally..."
+        );
+        // Generate a smaller ceremony locally for testing
+        ptauPath = path.join(outputDir, "pot12_final.ptau");
+
+        console.log("   Creating new accumulator...");
+        await snarkjs.powersOfTau.newAccumulator(
+          12,
+          path.join(outputDir, "pot12_0000.ptau")
+        );
+
+        console.log("   Contributing to ceremony...");
+        await snarkjs.powersOfTau.contribute(
+          path.join(outputDir, "pot12_0000.ptau"),
+          path.join(outputDir, "pot12_0001.ptau"),
+          "first contribution",
+          "random entropy for testing"
+        );
+
+        console.log("   Finalizing ceremony...");
+        await snarkjs.powersOfTau.finalizeAccumulator(
+          path.join(outputDir, "pot12_0001.ptau"),
+          ptauPath
+        );
+
+        // Clean up intermediate files
+        fs.unlinkSync(path.join(outputDir, "pot12_0000.ptau"));
+        fs.unlinkSync(path.join(outputDir, "pot12_0001.ptau"));
+
+        console.log("   ✓ Local powers of tau ceremony completed");
+      }
     }
 
-    if (!ptauPath || !fs.existsSync(ptauPath)) {
-      console.log(
-        "   No valid powers of tau file found, generating locally..."
-      );
-      // Generate a smaller ceremony locally for testing
-      ptauPath = path.join(outputDir, "pot12_final.ptau");
-
-      console.log("   Creating new accumulator...");
-      await snarkjs.powersOfTau.newAccumulator(
-        12,
-        path.join(outputDir, "pot12_0000.ptau")
-      );
-
-      console.log("   Contributing to ceremony...");
-      await snarkjs.powersOfTau.contribute(
-        path.join(outputDir, "pot12_0000.ptau"),
-        path.join(outputDir, "pot12_0001.ptau"),
-        "first contribution",
-        "random entropy for testing"
-      );
-
-      console.log("   Finalizing ceremony...");
-      await snarkjs.powersOfTau.finalizeAccumulator(
-        path.join(outputDir, "pot12_0001.ptau"),
-        ptauPath
-      );
-
-      // Clean up intermediate files
-      fs.unlinkSync(path.join(outputDir, "pot12_0000.ptau"));
-      fs.unlinkSync(path.join(outputDir, "pot12_0001.ptau"));
-
-      console.log("   ✓ Local powers of tau ceremony completed");
-    }
-
-    console.log("   Using powers of tau file:", path.basename(ptauPath));
-
-    // Use existing proving key (eddsa.zkey) or generate new one
+    console.log("   Using powers of tau file:", path.basename(ptauPath)); // Use existing proving key (eddsa.zkey) or generate new one
     let zkeyPath = path.join(outputDir, "eddsa.zkey");
     if (!fs.existsSync(zkeyPath) || fs.statSync(zkeyPath).size < 1000000) {
       // If eddsa.zkey doesn't exist or is too small, generate a new one

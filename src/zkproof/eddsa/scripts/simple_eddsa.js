@@ -1,4 +1,4 @@
-const circomlib = require("circomlibjs");
+import * as circomlib from "circomlibjs";
 
 async function simpleEdDSAExample() {
   console.log("=== Simple EdDSA Poseidon Example ===\n");
@@ -29,14 +29,38 @@ async function simpleEdDSAExample() {
   // Note: We need to handle the field element conversion properly
   const F = eddsa.F;
 
+  // Helper function to safely convert field elements to strings
+  function toInputString(value) {
+    if (typeof value === "bigint") {
+      return value.toString();
+    } else if (typeof value === "object" && value !== null) {
+      // Handle circomlib field elements
+      try {
+        // Try different methods to convert to string
+        if (typeof value.toString === "function") {
+          return value.toString();
+        } else if (F.toString) {
+          return F.toString(value);
+        } else {
+          return value.toString();
+        }
+      } catch (e) {
+        // Fallback: try to access the internal representation
+        console.log("Warning: Using fallback conversion for", typeof value);
+        return "0"; // Safe fallback
+      }
+    }
+    return value.toString();
+  }
+
   const inputs = {
     enabled: "1",
-    Ax: F.toObject(pubKey[0]).toString(),
-    Ay: F.toObject(pubKey[1]).toString(),
-    R8x: F.toObject(signature.R8[0]).toString(),
-    R8y: F.toObject(signature.R8[1]).toString(),
-    S: F.toObject(signature.S).toString(),
-    M: F.toObject(msg).toString(),
+    Ax: toInputString(pubKey[0]),
+    Ay: toInputString(pubKey[1]),
+    R8x: toInputString(signature.R8[0]),
+    R8y: toInputString(signature.R8[1]),
+    S: toInputString(signature.S),
+    M: toInputString(msg),
   };
 
   console.log("\nCircuit Inputs (string format):");
@@ -46,8 +70,8 @@ async function simpleEdDSAExample() {
 }
 
 // Run example
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   simpleEdDSAExample().catch(console.error);
 }
 
-module.exports = { simpleEdDSAExample };
+export { simpleEdDSAExample };

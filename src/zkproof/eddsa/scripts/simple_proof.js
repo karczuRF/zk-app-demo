@@ -1,7 +1,11 @@
-const snarkjs = require("snarkjs");
-const fs = require("fs");
-const path = require("path");
-const { execSync } = require("child_process");
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+import * as snarkjs from "snarkjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Simple EdDSA Proof Generation Example
@@ -27,7 +31,15 @@ async function simpleProofGeneration() {
   console.log("1. Circuit Inputs:");
   console.log(JSON.stringify(inputs, null, 2));
 
-  const buildDir = path.join(__dirname, "build");
+  const buildDir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+    "build",
+    "eddsa_simple"
+  );
 
   try {
     // Create build directory
@@ -212,7 +224,7 @@ async function simpleProofGeneration() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   simpleProofGeneration()
     .then((result) => {
       if (result.success) {
@@ -224,4 +236,4 @@ if (require.main === module) {
     .catch(console.error);
 }
 
-module.exports = { simpleProofGeneration };
+export { simpleProofGeneration };

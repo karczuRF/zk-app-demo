@@ -1,4 +1,4 @@
-const circomlib = require("circomlibjs");
+import * as circomlib from "circomlibjs";
 
 async function workingEdDSAExample() {
   console.log("=== Working EdDSA Poseidon Example ===\n");
@@ -75,8 +75,8 @@ async function workingEdDSAExample() {
 }
 
 // Run example
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   workingEdDSAExample().catch(console.error);
 }
 
-module.exports = { workingEdDSAExample };
+export { workingEdDSAExample };

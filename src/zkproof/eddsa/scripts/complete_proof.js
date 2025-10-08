@@ -16,7 +16,15 @@ const __dirname = path.dirname(__filename);
 async function generateWorkingProof() {
   console.log("=== Complete EdDSA Proof Generation ===\n");
 
-  const buildDir = path.join(__dirname, "build");
+  const buildDir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+    "build",
+    "eddsa_complete"
+  );
 
   // Ensure build directory exists
   if (!fs.existsSync(buildDir)) {
@@ -80,41 +88,73 @@ async function generateWorkingProof() {
 
     console.log("✓ Witness generation completed successfully");
 
-    // Step 3: Download powers of tau if needed
+    // Step 3: Use existing powers of tau file or copy from generate_proof
     console.log("\n3. Setting up powers of tau...");
-    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_13.ptau");
+    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_12.ptau");
 
-    if (!fs.existsSync(ptauPath)) {
-      console.log("   Downloading powers of tau (this may take a while)...");
-      try {
-        execSync(
-          `wget -q -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`,
-          { stdio: "inherit" }
-        );
-        console.log("✓ Powers of tau downloaded");
-      } catch (wgetError) {
-        console.log("⚠️ wget failed, trying curl...");
+    // Check if we already have a valid ptau file
+    if (!fs.existsSync(ptauPath) || fs.statSync(ptauPath).size < 1000000) {
+      // Try to copy from generate_proof build directory
+      const sourcePathGenerate = path.join(
+        __dirname,
+        "build",
+        "powersOfTau28_hez_final_13.ptau"
+      );
+      const sourcePathMain = path.join(
+        __dirname,
+        "..",
+        "..",
+        "..",
+        "..",
+        "build",
+        "eddsa",
+        "powersOfTau28_hez_final_13.ptau"
+      );
+
+      if (
+        fs.existsSync(sourcePathGenerate) &&
+        fs.statSync(sourcePathGenerate).size > 1000000
+      ) {
+        console.log("   Copying valid powers of tau file from local build...");
+        fs.copyFileSync(sourcePathGenerate, ptauPath);
+        console.log("✓ Powers of tau copied from generate_proof");
+      } else if (
+        fs.existsSync(sourcePathMain) &&
+        fs.statSync(sourcePathMain).size > 1000000
+      ) {
+        console.log("   Copying valid powers of tau file from main build...");
+        fs.copyFileSync(sourcePathMain, ptauPath);
+        console.log("✓ Powers of tau copied from main build");
+      } else {
+        console.log("   No valid powers of tau file found, downloading...");
         try {
           execSync(
-            `curl -L -o "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`,
+            `wget -q -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`,
             { stdio: "inherit" }
           );
-          console.log("✓ Powers of tau downloaded with curl");
-        } catch (curlError) {
-          console.log(
-            "❌ Failed to download powers of tau. Please download manually:"
-          );
-          console.log(
-            `   wget -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`
-          );
-          throw new Error("Powers of tau required for proof generation");
+          console.log("✓ Powers of tau downloaded");
+        } catch (wgetError) {
+          console.log("⚠️ wget failed, trying curl...");
+          try {
+            execSync(
+              `curl -L -o "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`,
+              { stdio: "inherit" }
+            );
+            console.log("✓ Powers of tau downloaded with curl");
+          } catch (curlError) {
+            console.log(
+              "❌ Failed to download powers of tau. Please download manually:"
+            );
+            console.log(
+              `   wget -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`
+            );
+            throw new Error("Powers of tau required for proof generation");
+          }
         }
       }
     } else {
       console.log("✓ Powers of tau already exists");
-    }
-
-    // Step 4: Generate witness file for snarkjs (already done above)
+    } // Step 4: Generate witness file for snarkjs (already done above)
     console.log("\n4. Witness file already generated...");
 
     // Witness already generated above

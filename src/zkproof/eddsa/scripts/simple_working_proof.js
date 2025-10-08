@@ -1,6 +1,6 @@
-const snarkjs = require("snarkjs");
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import * as snarkjs from "snarkjs";
 
 /**
  * Simple Working EdDSA Proof Generation

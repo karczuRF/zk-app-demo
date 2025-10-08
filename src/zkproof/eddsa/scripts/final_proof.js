@@ -1,7 +1,9 @@
-const snarkjs = require("snarkjs");
-const fs = require("fs");
-const path = require("path");
-const { execSync } = require("child_process");
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+// import { eddsaPoseidonExample } from "./eddsa_example.js"; // import if needed
+
 
 /**
  * Final Working EdDSA Proof Generation
