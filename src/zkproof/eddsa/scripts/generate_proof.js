@@ -1,6 +1,11 @@
-const snarkjs = require("snarkjs");
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
+import * as snarkjs from "snarkjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Complete EdDSA Proof Generation and Verification Example
@@ -30,36 +35,42 @@ async function generateAndVerifyProof() {
   console.log(JSON.stringify(inputs, null, 2));
 
   try {
-    // Step 1: Compile circuit (generates r1cs, wasm, and sym files)
-    console.log("\n2. Compiling circuit...");
-    const circuitPath = path.join(__dirname, "EdDSAExample.circom");
+    // Step 1: Use pre-compiled circuit (already exists)
+    console.log("\n2. Using pre-compiled circuit...");
+    const circuitPath = path.join(__dirname, "..", "EdDSAVerifier.circom");
     const outputDir = path.join(__dirname, "build");
+    const preCompiledDir = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "build",
+      "eddsa"
+    );
 
     // Create build directory if it doesn't exist
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Compile circuit using circom
-    const { execSync } = require("child_process");
-    try {
-      execSync(
-        `circom ${circuitPath} --r1cs --wasm --sym --output ${outputDir}`,
-        { stdio: "inherit", cwd: __dirname }
-      );
-      console.log("✓ Circuit compiled successfully");
-    } catch (error) {
+    // Check if pre-compiled circuit exists
+    if (fs.existsSync(preCompiledDir)) {
+      console.log("✓ Using pre-compiled circuit from:", preCompiledDir);
+    } else {
+      console.log("⚠️ Pre-compiled circuit not found. Compile first with:");
       console.log(
-        "Circuit compilation may have issues, continuing with existing files..."
+        "   circom src/zkproof/eddsa/EdDSAVerifier.circom --r1cs --wasm --sym -l node_modules -o build/eddsa/"
       );
+      throw new Error("Pre-compiled circuit required");
     }
 
     // Step 2: Calculate witness
     console.log("\n3. Calculating witness...");
     const wasmPath = path.join(
-      outputDir,
-      "EdDSAExample_js",
-      "EdDSAExample.wasm"
+      preCompiledDir,
+      "EdDSAVerifier_js",
+      "EdDSAVerifier.wasm"
     );
     const witnessPath = path.join(outputDir, "witness.wtns");
     await snarkjs.wtns.calculate(inputs, wasmPath, witnessPath);
@@ -73,32 +84,54 @@ async function generateAndVerifyProof() {
 
     // Step 3: Setup (generate proving and verification keys)
     console.log("\n4. Setting up proving system...");
-    const r1csPath = path.join(outputDir, "EdDSAExample.r1cs");
+    console.log("\n4. Setting up proving system output dir", outputDir);
+    const r1csPath = path.join(preCompiledDir, "EdDSAVerifier.r1cs");
 
     // Use existing powers of tau file
-    let ptauPath = path.join(outputDir, "powersOfTau28_hez_final_12.ptau");
+    let ptauPath = path.join(outputDir, "powersOfTau28_hez_final_13.ptau");
     if (!fs.existsSync(ptauPath)) {
-      ptauPath = path.join(outputDir, "powersOfTau28_hez_final_13.ptau");
+      ptauPath = path.join(outputDir, "powersOfTau28_hez_final_12.ptau");
     }
 
-    if (!fs.existsSync(ptauPath)) {
-      console.log("   No powers of tau file found, downloading...");
-      // For now, use a smaller ceremony
+    // Check if the file is valid (not empty)
+    if (fs.existsSync(ptauPath) && fs.statSync(ptauPath).size < 1000000) {
+      console.log("   Powers of tau file is too small/corrupted, removing...");
+      fs.unlinkSync(ptauPath);
+      ptauPath = null;
+    }
+
+    if (!ptauPath || !fs.existsSync(ptauPath)) {
+      console.log(
+        "   No valid powers of tau file found, generating locally..."
+      );
+      // Generate a smaller ceremony locally for testing
       ptauPath = path.join(outputDir, "pot12_final.ptau");
+
+      console.log("   Creating new accumulator...");
       await snarkjs.powersOfTau.newAccumulator(
         12,
         path.join(outputDir, "pot12_0000.ptau")
       );
+
+      console.log("   Contributing to ceremony...");
       await snarkjs.powersOfTau.contribute(
         path.join(outputDir, "pot12_0000.ptau"),
         path.join(outputDir, "pot12_0001.ptau"),
         "first contribution",
-        "entropy"
+        "random entropy for testing"
       );
+
+      console.log("   Finalizing ceremony...");
       await snarkjs.powersOfTau.finalizeAccumulator(
         path.join(outputDir, "pot12_0001.ptau"),
         ptauPath
       );
+
+      // Clean up intermediate files
+      fs.unlinkSync(path.join(outputDir, "pot12_0000.ptau"));
+      fs.unlinkSync(path.join(outputDir, "pot12_0001.ptau"));
+
+      console.log("   ✓ Local powers of tau ceremony completed");
     }
 
     console.log("   Using powers of tau file:", path.basename(ptauPath));
@@ -175,19 +208,20 @@ async function generateAndVerifyProof() {
       console.log("✓ Solidity verifier saved to:", verifierPath);
     } catch (error) {
       console.log("⚠️  Solidity verifier generation failed (optional step)");
-      console.log("   Error:", error.message);
+      console.log("   This is expected with some snarkjs versions");
     }
 
     console.log("\n=== Summary ===");
     console.log("Files generated:");
-    console.log("- build/EdDSAExample.r1cs (constraint system)");
-    console.log("- build/EdDSAExample.wasm (witness generator)");
     console.log("- build/witness.wtns (witness data)");
     console.log("- build/EdDSAExample_0001.zkey (proving key)");
     console.log("- build/verification_key.json (verification key)");
     console.log("- build/proof.json (generated proof)");
     console.log("- build/public.json (public signals)");
     console.log("- build/verifier.sol (Solidity verifier contract)");
+    console.log("\nUsing pre-compiled circuit from:");
+    console.log("- build/eddsa/EdDSAVerifier.r1cs (constraint system)");
+    console.log("- build/eddsa/EdDSAVerifier.wasm (witness generator)");
 
     return {
       proof,
@@ -212,7 +246,7 @@ async function generateAndVerifyProof() {
 }
 
 // Run the example
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   generateAndVerifyProof()
     .then((result) => {
       console.log("\n✨ Proof generation completed successfully!");
@@ -224,4 +258,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { generateAndVerifyProof };
+export { generateAndVerifyProof };

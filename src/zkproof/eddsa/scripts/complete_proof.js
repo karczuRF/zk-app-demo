@@ -82,13 +82,13 @@ async function generateWorkingProof() {
 
     // Step 3: Download powers of tau if needed
     console.log("\n3. Setting up powers of tau...");
-    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_12.ptau");
+    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_13.ptau");
 
     if (!fs.existsSync(ptauPath)) {
       console.log("   Downloading powers of tau (this may take a while)...");
       try {
         execSync(
-          `wget -q -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`,
+          `wget -q -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`,
           { stdio: "inherit" }
         );
         console.log("✓ Powers of tau downloaded");
@@ -96,7 +96,7 @@ async function generateWorkingProof() {
         console.log("⚠️ wget failed, trying curl...");
         try {
           execSync(
-            `curl -L -o "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`,
+            `curl -L -o "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`,
             { stdio: "inherit" }
           );
           console.log("✓ Powers of tau downloaded with curl");
@@ -105,7 +105,7 @@ async function generateWorkingProof() {
             "❌ Failed to download powers of tau. Please download manually:"
           );
           console.log(
-            `   wget -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`
+            `   wget -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`
           );
           throw new Error("Powers of tau required for proof generation");
         }
