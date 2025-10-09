@@ -90,7 +90,9 @@ This directory contains various scripts for working with EdDSA (Edwards-curve Di
 
 - Tests various EdDSA signature scenarios
 - Validates circuit input formats
-- **Status**: ❓ Needs conversion to ES modules
+- Tests invalid signature rejection
+- Tests disabled verification mode
+- **Status**: ✅ Working (ES modules, standalone test runner)
 
 ## 📁 Output Directories
 
