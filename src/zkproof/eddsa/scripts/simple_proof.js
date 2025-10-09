@@ -3,6 +3,7 @@ import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import * as snarkjs from "snarkjs";
+import { wasm } from "circom_tester";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,7 +50,7 @@ async function simpleProofGeneration() {
 
     // Step 1: Compile circuit
     console.log("\n2. Compiling circuit...");
-    const circuitPath = path.join(__dirname, "EdDSAExample.circom");
+    const circuitPath = path.join(__dirname, "..", "EdDSAVerifier.circom");
 
     try {
       execSync(
@@ -93,7 +94,6 @@ async function simpleProofGeneration() {
     // Step 4: Try alternative witness generation using circom_tester
     console.log("\n5. Alternative witness generation using circom_tester...");
     try {
-      const { wasm } = require("circom_tester");
       const circuit = await wasm(circuitPath);
       const witness = await circuit.calculateWitness(inputs, true);
 
@@ -232,8 +232,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       } else {
         console.log("\n⚠️ Setup completed with issues");
       }
+      // Force exit to prevent hanging
+      process.exit(0);
     })
-    .catch(console.error);
+    .catch((error) => {
+      console.error("\n💥 Proof generation failed!");
+      process.exit(1);
+    });
 }
 
 export { simpleProofGeneration };

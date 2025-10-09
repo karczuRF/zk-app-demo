@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
-// import { eddsaPoseidonExample } from "./eddsa_example.js"; // import if needed
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,9 +36,8 @@ async function generateWorkingProof() {
   // Import and use the EdDSA example generator
   const { eddsaPoseidonExample } = await import("./eddsa_example.js");
   const workingInputs = await eddsaPoseidonExample();
-  // Test inputs from our working test case
 
-  // some test inputs
+  // Test inputs from our working test case
   //   const workingInputs = {
   //     enabled: "1",
   //     // Public inputs (will be public signals)

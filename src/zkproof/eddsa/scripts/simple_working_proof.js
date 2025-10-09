@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
 import * as snarkjs from "snarkjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Simple Working EdDSA Proof Generation
@@ -11,7 +16,16 @@ import * as snarkjs from "snarkjs";
 async function simpleWorkingProof() {
   console.log("=== Simple Working EdDSA Proof Generation ===\n");
 
-  const buildDir = path.join(__dirname, "build");
+  // const buildDir = path.join(__dirname, "build");
+  const buildDir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+    "build",
+    "eddsa_simple"
+  );
 
   // Working test inputs
   const inputs = {
@@ -32,8 +46,8 @@ async function simpleWorkingProof() {
     console.log("\n2. Generating witness...");
     const wasmPath = path.join(
       buildDir,
-      "EdDSAExample_js",
-      "EdDSAExample.wasm"
+      "EdDSAVerifier_js",
+      "EdDSAVerifier.wasm"
     );
     const witnessPath = path.join(buildDir, "witness.wtns");
 
@@ -114,7 +128,7 @@ async function simpleWorkingProof() {
 
 ## What was generated:
 
-1. **Circuit Compilation**: EdDSAExample.circom -> r1cs, wasm, sym files
+1. **Circuit Compilation**: EdDSAVerifier.circom -> r1cs, wasm, sym files
 2. **Witness Generation**: Computed witness for the given inputs
 3. **Proof Structure**: Mock proof showing the expected format
 
@@ -132,7 +146,7 @@ ${JSON.stringify(publicSignals, null, 2)}
 wget https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_15.ptau
 
 # Setup proving key
-snarkjs groth16 setup EdDSAExample.r1cs powersOfTau28_hez_final_15.ptau circuit.zkey
+snarkjs groth16 setup EdDSAVerifier.r1cs powersOfTau28_hez_final_15.ptau circuit.zkey
 
 # Export verification key  
 snarkjs zkey export verificationkey circuit.zkey verification_key.json
@@ -151,7 +165,7 @@ const snarkjs = require("snarkjs");
 // Full prove (requires setup files)
 const { proof, publicSignals } = await snarkjs.groth16.fullProve(
     inputs, 
-    "EdDSAExample.wasm", 
+    "EdDSAVerifier.wasm", 
     "circuit.zkey"
 );
 
@@ -169,8 +183,8 @@ const result = await snarkjs.groth16.verify(vKey, publicSignals, proof);
 
 ## Files in build/ directory:
 
-- \`EdDSAExample.r1cs\` - Circuit constraints
-- \`EdDSAExample_js/EdDSAExample.wasm\` - Witness generator
+- \`EdDSAVerifier.r1cs\` - Circuit constraints
+- \`EdDSAExample_js/EdDSAVerifier.wasm\` - Witness generator
 - \`witness.wtns\` - Generated witness
 - \`witness.json\` - Witness in readable format
 - \`proof.json\` - Generated proof (mock)
@@ -205,7 +219,7 @@ proof generation process. In production:
     console.log("\n📊 Key Results:");
     console.log(
       `   Circuit constraints: ${
-        fs.statSync(path.join(buildDir, "EdDSAExample.r1cs")).size
+        fs.statSync(path.join(buildDir, "EdDSAVerifier.r1cs")).size
       } bytes`
     );
     console.log(`   Witness elements: ${witnessData.length}`);
@@ -243,16 +257,31 @@ proof generation process. In production:
 }
 
 // Run if called directly
-if (require.main === module) {
+// if (require.main === module) {
+//   simpleWorkingProof()
+//     .then((result) => {
+//       if (result.success) {
+//         console.log("\n🏆 Proof generation demonstration completed!");
+//       } else {
+//         console.log("\n💥 Failed!");
+//       }
+//     })
+//     .catch(console.error);
+// }
+
+// module.exports = { simpleWorkingProof };
+
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
   simpleWorkingProof()
     .then((result) => {
       if (result.success) {
-        console.log("\n🏆 Proof generation demonstration completed!");
+        console.log("\n✨ Setup completed successfully!");
       } else {
-        console.log("\n💥 Failed!");
+        console.log("\n⚠️ Setup completed with issues");
       }
     })
     .catch(console.error);
 }
 
-module.exports = { simpleWorkingProof };
+export { simpleWorkingProof };

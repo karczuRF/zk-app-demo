@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
 import { fileURLToPath } from "url";
-// import { eddsaPoseidonExample } from "./eddsa_example.js"; // import if needed
+import * as snarkjs from "snarkjs";
 
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 /**
  * Final Working EdDSA Proof Generation
  *
@@ -14,7 +14,15 @@ import { fileURLToPath } from "url";
 async function finalProofGeneration() {
   console.log("=== Final EdDSA Proof Generation ===\n");
 
-  const buildDir = path.join(__dirname, "build");
+  const buildDir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "..",
+    "build",
+    "eddsa_simple"
+  );
 
   // Working test inputs (disabled verification to ensure it works)
   const inputs = {
@@ -35,8 +43,8 @@ async function finalProofGeneration() {
     console.log("\n2. Generating witness...");
     const wasmPath = path.join(
       buildDir,
-      "EdDSAExample_js",
-      "EdDSAExample.wasm"
+      "EdDSAVerifier_js",
+      "EdDSAVerifier.wasm"
     );
     const witnessPath = path.join(buildDir, "witness.wtns");
 
@@ -52,40 +60,35 @@ async function finalProofGeneration() {
       throw new Error("WASM file not found at " + wasmPath);
     }
 
-    // Step 2: Create a small powers of tau for testing
-    console.log("\n3. Creating powers of tau for testing...");
-    const ptauPath = path.join(buildDir, "pot12_final.ptau");
+    // Step 2: Use existing powers of tau from working script
+    console.log("\n3. Using powers of tau for testing...");
+    const sourcePtauPath = path.join(
+      __dirname,
+      "../../../../build/eddsa_generate/powersOfTau28_hez_final_12.ptau"
+    );
+    const ptauPath = path.join(buildDir, "powersOfTau28_hez_final_12.ptau");
 
     if (!fs.existsSync(ptauPath)) {
-      console.log(
-        "   Generating small powers of tau (this may take a moment)..."
-      );
-      await snarkjs.powersOfTau.newAccumulator(
-        12,
-        path.join(buildDir, "pot12_0000.ptau")
-      );
-      await snarkjs.powersOfTau.contribute(
-        path.join(buildDir, "pot12_0000.ptau"),
-        path.join(buildDir, "pot12_0001.ptau"),
-        "first contribution",
-        "entropy1234"
-      );
-      await snarkjs.powersOfTau.finalizeAccumulator(
-        path.join(buildDir, "pot12_0001.ptau"),
-        ptauPath
-      );
-      console.log("✓ Powers of tau created");
+      if (fs.existsSync(sourcePtauPath)) {
+        console.log("   Copying working powers of tau file...");
+        fs.copyFileSync(sourcePtauPath, ptauPath);
+        console.log("✓ Powers of tau copied successfully");
+      } else {
+        throw new Error(
+          "Working powers of tau file not found at " + sourcePtauPath
+        );
+      }
     } else {
       console.log("✓ Powers of tau already exists");
     }
 
     // Step 3: Setup proving key
     console.log("\n4. Setting up proving key...");
-    const r1csPath = path.join(buildDir, "EdDSAExample.r1cs");
+    const r1csPath = path.join(buildDir, "EdDSAVerifier.r1cs");
     const zkeyPath = path.join(buildDir, "circuit.zkey");
 
     if (!fs.existsSync(zkeyPath)) {
-      await snarkjs.groth16.setup(r1csPath, ptauPath, zkeyPath);
+      await snarkjs.zKey.newZKey(r1csPath, ptauPath, zkeyPath);
       console.log("✓ Proving key generated");
     } else {
       console.log("✓ Proving key already exists");
@@ -145,13 +148,21 @@ async function finalProofGeneration() {
     }
 
     // Step 7: Generate Solidity verifier
-    console.log("\n8. Generating Solidity verifier...");
-    const solidityVerifier = await snarkjs.zKey.exportSolidityVerifier(
-      zkeyPath
-    );
     const verifierPath = path.join(buildDir, "verifier.sol");
-    fs.writeFileSync(verifierPath, solidityVerifier);
-    console.log("✓ Solidity verifier contract generated");
+    try {
+      console.log("\n8. Generating Solidity verifier...");
+      const solidityVerifier = await snarkjs.zKey.exportSolidityVerifier(
+        zkeyPath
+      );
+      fs.writeFileSync(verifierPath, solidityVerifier);
+      console.log("✓ Solidity verifier contract generated");
+    } catch (error) {
+      console.log(
+        "❌ Warning: Could not generate Solidity verifier:",
+        error.message
+      );
+      console.log("   This is optional and doesn't affect proof generation");
+    }
 
     // Step 8: Create verification script
     console.log("\n9. Creating verification script...");
@@ -222,16 +233,21 @@ verifyProof().catch(console.error);
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   finalProofGeneration()
     .then((result) => {
       if (result.success) {
-        console.log("\n🏆 Complete proof generation successful!");
+        console.log("\n🚀 Complete proof generation finished!");
       } else {
-        console.log("\n💥 Proof generation failed!");
+        console.log("\n⚠️ Proof generation completed with issues");
       }
+      // Force exit to prevent hanging
+      process.exit(0);
     })
-    .catch(console.error);
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
 }
 
-module.exports = { finalProofGeneration };
+export { finalProofGeneration };
