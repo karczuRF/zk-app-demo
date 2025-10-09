@@ -53,7 +53,7 @@ async function generateAndVerifyProof() {
       "..",
       "..",
       "build",
-      "eddsa"
+      "eddsa_simple"
     );
 
     // Create build directory if it doesn't exist
@@ -141,6 +141,7 @@ async function generateAndVerifyProof() {
 
         console.log("   Creating new accumulator...");
         await snarkjs.powersOfTau.newAccumulator(
+          "bn128",
           12,
           path.join(outputDir, "pot12_0000.ptau")
         );

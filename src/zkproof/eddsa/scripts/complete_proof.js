@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
+import * as snarkjs from "snarkjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +52,9 @@ async function generateWorkingProof() {
   //   };
   console.log("   Inputs:", JSON.stringify(workingInputs, null, 2));
 
+  // Declare witnessPath at function scope
+  const witnessPath = path.join(buildDir, "witness.wtns");
+
   try {
     // Step 2: Generate witness with working inputs
     console.log("\n2. Generating witness...");
@@ -65,14 +69,12 @@ async function generateWorkingProof() {
       "..",
       "..",
       "build",
-      "eddsa",
+      "eddsa_simple",
       "EdDSAVerifier_js",
       "EdDSAVerifier.wasm"
     );
 
     if (fs.existsSync(wasmPath)) {
-      const snarkjs = await import("snarkjs");
-      const witnessPath = path.join(buildDir, "witness.wtns");
       await snarkjs.wtns.calculate(workingInputs, wasmPath, witnessPath);
       console.log("✓ Witness generated using pre-compiled circuit");
       console.log("✓ Witness file saved to:", witnessPath);
@@ -95,7 +97,12 @@ async function generateWorkingProof() {
       // Try to copy from generate_proof build directory
       const sourcePathGenerate = path.join(
         __dirname,
+        "..",
+        "..",
+        "..",
+        "..",
         "build",
+        "eddsa_generate",
         "powersOfTau28_hez_final_13.ptau"
       );
       const sourcePathMain = path.join(
@@ -105,7 +112,7 @@ async function generateWorkingProof() {
         "..",
         "..",
         "build",
-        "eddsa",
+        "eddsa_simple",
         "powersOfTau28_hez_final_13.ptau"
       );
 
@@ -127,7 +134,7 @@ async function generateWorkingProof() {
         console.log("   No valid powers of tau file found, downloading...");
         try {
           execSync(
-            `wget -q -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`,
+            `wget -q -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`,
             { stdio: "inherit" }
           );
           console.log("✓ Powers of tau downloaded");
@@ -135,7 +142,7 @@ async function generateWorkingProof() {
           console.log("⚠️ wget failed, trying curl...");
           try {
             execSync(
-              `curl -L -o "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`,
+              `curl -L -o "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`,
               { stdio: "inherit" }
             );
             console.log("✓ Powers of tau downloaded with curl");
@@ -144,7 +151,7 @@ async function generateWorkingProof() {
               "❌ Failed to download powers of tau. Please download manually:"
             );
             console.log(
-              `   wget -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau`
+              `   wget -O "${ptauPath}" https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_13.ptau`
             );
             throw new Error("Powers of tau required for proof generation");
           }
@@ -157,50 +164,75 @@ async function generateWorkingProof() {
 
     // Witness already generated above
 
-    // Step 5: Setup proving key
-    console.log("\n5. Generating proving key...");
-    const r1csPath = path.join(
+    // Step 5: Use existing proving key from generate_proof
+    console.log("\n5. Setting up proving key...");
+    const zkeyPath = path.join(buildDir, "circuit.zkey");
+
+    // Try to copy working zkey from generate_proof
+    const sourceZkeyPath = path.join(
       __dirname,
       "..",
       "..",
       "..",
       "..",
       "build",
-      "eddsa",
-      "EdDSAVerifier.r1cs"
+      "eddsa_generate",
+      "EdDSAExample_0001.zkey"
     );
-    const zkeyPath = path.join(buildDir, "circuit.zkey");
 
-    if (
-      !fs.existsSync(zkeyPath) &&
-      fs.existsSync(r1csPath) &&
-      fs.existsSync(ptauPath)
-    ) {
-      try {
-        execSync(
-          `snarkjs groth16 setup "${r1csPath}" "${ptauPath}" "${zkeyPath}"`,
-          { stdio: "inherit", cwd: buildDir }
-        );
-        console.log("✓ Proving key generated");
-      } catch (setupError) {
-        console.log("⚠️ Setup failed:", setupError.message);
+    if (!fs.existsSync(zkeyPath) || fs.statSync(zkeyPath).size === 0) {
+      if (
+        fs.existsSync(sourceZkeyPath) &&
+        fs.statSync(sourceZkeyPath).size > 1000000
+      ) {
+        console.log("   Copying working proving key from generate_proof...");
+        fs.copyFileSync(sourceZkeyPath, zkeyPath);
+        console.log("✓ Proving key copied successfully");
+        console.log("   File size:", fs.statSync(zkeyPath).size, "bytes");
+      } else {
+        console.log("❌ No working proving key found at:", sourceZkeyPath);
+        console.log("   Run generate_proof.js first to create the proving key");
       }
+    } else {
+      console.log("✓ Proving key already exists");
+      console.log("   File size:", fs.statSync(zkeyPath).size, "bytes");
     }
 
     // Step 6: Export verification key
     console.log("\n6. Exporting verification key...");
     const vkeyPath = path.join(buildDir, "verification_key.json");
 
-    if (fs.existsSync(zkeyPath) && !fs.existsSync(vkeyPath)) {
-      try {
-        execSync(
-          `snarkjs zkey export verificationkey "${zkeyPath}" "${vkeyPath}"`,
-          { stdio: "inherit", cwd: buildDir }
-        );
-        console.log("✓ Verification key exported");
-      } catch (vkeyError) {
-        console.log("⚠️ Verification key export failed:", vkeyError.message);
+    // Try to copy from generate_proof first
+    const sourceVkeyPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "build",
+      "eddsa_generate",
+      "verification_key.json"
+    );
+
+    if (!fs.existsSync(vkeyPath)) {
+      if (fs.existsSync(sourceVkeyPath)) {
+        console.log("   Copying verification key from generate_proof...");
+        fs.copyFileSync(sourceVkeyPath, vkeyPath);
+        console.log("✓ Verification key copied");
+      } else if (fs.existsSync(zkeyPath) && fs.statSync(zkeyPath).size > 0) {
+        try {
+          console.log("   Exporting verification key with snarkjs API...");
+          const vKey = await snarkjs.zKey.exportVerificationKey(zkeyPath);
+          fs.writeFileSync(vkeyPath, JSON.stringify(vKey, null, 2));
+          console.log("✓ Verification key exported");
+        } catch (vkeyError) {
+          console.log("⚠️ Verification key export failed:", vkeyError.message);
+        }
+      } else {
+        console.log("❌ Cannot export verification key: no source available");
       }
+    } else {
+      console.log("✓ Verification key already exists");
     }
 
     // Step 7: Generate proof
@@ -208,28 +240,62 @@ async function generateWorkingProof() {
     const proofPath = path.join(buildDir, "proof.json");
     const publicPath = path.join(buildDir, "public.json");
 
-    if (fs.existsSync(zkeyPath) && fs.existsSync(witnessPath)) {
+    if (
+      fs.existsSync(zkeyPath) &&
+      fs.existsSync(witnessPath) &&
+      fs.statSync(zkeyPath).size > 0
+    ) {
       try {
-        execSync(
-          `snarkjs groth16 prove "${zkeyPath}" "${witnessPath}" "${proofPath}" "${publicPath}"`,
-          { stdio: "inherit", cwd: buildDir }
+        console.log("   Generating proof with snarkjs API...");
+        const wasmPath = path.join(
+          __dirname,
+          "..",
+          "..",
+          "..",
+          "..",
+          "build",
+          "eddsa_simple",
+          "EdDSAVerifier_js",
+          "EdDSAVerifier.wasm"
         );
+
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+          workingInputs,
+          wasmPath,
+          zkeyPath
+        );
+
+        // Save proof and public signals
+        fs.writeFileSync(proofPath, JSON.stringify(proof, null, 2));
+        fs.writeFileSync(publicPath, JSON.stringify(publicSignals, null, 2));
+
         console.log("✓ Proof generated successfully!");
-
-        // Read and display the proof
-        if (fs.existsSync(proofPath)) {
-          const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
-          const publicSignals = JSON.parse(fs.readFileSync(publicPath, "utf8"));
-
-          console.log("\n📜 Generated Proof:");
-          console.log("   π_a:", proof.pi_a);
-          console.log("   π_b:", proof.pi_b[0]);
-          console.log("   π_c:", proof.pi_c);
-          console.log("\n📊 Public Signals:", publicSignals);
-        }
+        console.log("\n📜 Generated Proof:");
+        console.log("   π_a:", proof.pi_a);
+        console.log("   π_b:", proof.pi_b[0]);
+        console.log("   π_c:", proof.pi_c);
+        console.log("\n📊 Public Signals:", publicSignals);
       } catch (proveError) {
         console.log("⚠️ Proof generation failed:", proveError.message);
+        console.log("   Trying CLI fallback...");
+        try {
+          execSync(
+            `snarkjs groth16 prove "${zkeyPath}" "${witnessPath}" "${proofPath}" "${publicPath}"`,
+            { stdio: "inherit", cwd: buildDir }
+          );
+          console.log("✓ Proof generated with CLI");
+        } catch (cliError) {
+          console.log("⚠️ CLI proof generation also failed:", cliError.message);
+        }
       }
+    } else {
+      console.log("❌ Cannot generate proof: missing or invalid files");
+      console.log("   zkeyPath exists:", fs.existsSync(zkeyPath));
+      console.log("   witnessPath exists:", fs.existsSync(witnessPath));
+      console.log(
+        "   zkeyPath size:",
+        fs.existsSync(zkeyPath) ? fs.statSync(zkeyPath).size : 0
+      );
     }
 
     // Step 8: Verify proof
@@ -326,11 +392,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     .then((result) => {
       if (result.success) {
         console.log("\n🚀 Complete proof generation finished!");
+        process.exit(0);
       } else {
         console.log("\n⚠️ Proof generation completed with issues");
+        process.exit(1);
       }
     })
-    .catch(console.error);
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
 }
 
 export { generateWorkingProof };

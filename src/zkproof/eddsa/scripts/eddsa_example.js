@@ -22,6 +22,7 @@ export async function eddsaPoseidonExample() {
 
   console.log("1. Key Generation:");
   console.log("   Private Key:", privateKey.toString("hex"));
+  console.log("   Public Key:", publicKey.toString("hex"));
   console.log("   Public Key Ax:", publicKey[0]);
   console.log("   Public Key Ay:", publicKey[1]);
 
