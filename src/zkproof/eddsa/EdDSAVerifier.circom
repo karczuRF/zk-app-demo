@@ -1,6 +1,6 @@
 pragma circom 2.1.4;
 
-include "circomlib/circuits/eddsaposeidon.circom";
+include "../../../node_modules/circomlib/circuits/eddsaposeidon.circom";
 
 // This circuit verifies an EdDSA signature using Poseidon hash
 // It proves that the signer knows the private key corresponding to the public key
